@@ -3,12 +3,12 @@
 **A high-performance tool for finding the mathematically perfect glass combination for any beacon color in Minecraft.**
 
 This tool doesn't use "good enough" approximations. 
-It uses a precomputed 64MB Look-Up Table to provide the absolute best match for all 16.7 million RGB colors in $\mathcal{O}(1)$.
+It uses a precomputed 64MB Look-Up Table to provide the absolute best match for all 16.7 million RGB colors in O(1).
 
 ## Features
 * Uses **Oklab** color space for perceptual color matching (Delta E 76), which is far superior to standard RGB Euclidean distance.
 * Uses **SIMD (AVX-512 / AVX2)** and multi-threading to process trillion of color comparisons in an hour.
-* Provides $\mathcal{O}(1)$ lookup speed (approx. 5-10 nanoseconds per color).
+* Provides O(1) lookup speed (approx. 5-10 nanoseconds per color).
 * The entire 16.7M color database is stored in a 64MB binary file, which is GZIP-compressed to ~14MB for distribution.
 
 ## How it Works
