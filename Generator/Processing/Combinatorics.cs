@@ -8,17 +8,17 @@ public static class Combinatorics
     /// Generates all possible combinations of glasses from 1 to 6 and returns
     /// only unique resulting colors with their shortest sequences.
     /// </summary>
-    public static Dictionary<int, Sequence> GenerateUniqueColors()
+    public static Dictionary<int, Sequence> GenerateUniqueColors(int maxGlasses = 6)
     {
         // Dictionary for storing results.
         // Key - encoded RGB (ToIndex()), Value - Sequence structure
         var uniqueColors = new Dictionary<int, Sequence>(65536);
 
-        Span<byte> buffer = stackalloc byte[6];
+        Span<byte> buffer = stackalloc byte[maxGlasses];
 
         // Go from the shortest combinations (1 glass) to the longest (6 glasses)
         // This ensures that the first combination found for a color is always the shortest!
-        for (var length = 1; length <= 6; length++)
+        for (var length = 1; length <= maxGlasses; length++)
         {
             GeneratePermutations(buffer[..length], 0, uniqueColors);
         }
@@ -28,7 +28,7 @@ public static class Combinatorics
     }
 
     /// <summary>
-    ///  Recursive method for fast iteration using Span..
+    ///  Recursive method for fast iteration using Span.
     /// </summary>
     private static void GeneratePermutations(
         Span<byte> buffer,
