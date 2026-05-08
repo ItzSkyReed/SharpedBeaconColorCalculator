@@ -13,7 +13,7 @@ public static class Pipeline
         var storage = new BeaconStorage();
         Console.WriteLine("Starting generation...");
 
-        for (var layers = 2; layers <= 9; layers++)
+        for (var layers = 2; layers <= 8; layers++)
         {
             Console.WriteLine($"\n Processing layer {layers}");
 
@@ -23,7 +23,7 @@ public static class Pipeline
                 case <= 3:
                 {
                     var tree = BuildKdTree<short>(layers);
-                    storage.KdTreesShort.Add(layers, tree.GetNodesSpan().ToArray()); // Сохраняем массив
+                    storage.KdTreesShort.Add(layers, tree.GetNodesSpan().ToArray());
                     break;
                 }
                 case <= 5:

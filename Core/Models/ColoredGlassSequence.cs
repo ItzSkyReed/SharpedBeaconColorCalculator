@@ -37,10 +37,8 @@ public readonly struct ColoredGlassSequence<T> : IReadOnlyList<GlassColors>, IEq
     {
         get
         {
-            var shift = 3 + index * 4;
-
+            var shift = 4 + index * 4;
             var masked = (Value >>> shift) & T.CreateTruncating(0b1111);
-
             return (GlassColors)byte.CreateTruncating(masked);
         }
     }
@@ -51,7 +49,7 @@ public readonly struct ColoredGlassSequence<T> : IReadOnlyList<GlassColors>, IEq
         // short (16 bit): (16 - 3) / 4 = 3
         // int   (32 bit): (32 - 3) / 4 = 7
         // long  (64 bit): (64 - 3) / 4 = 15
-        var maxColors = (Unsafe.SizeOf<T>() * 8 - 3) / 4;
+        var maxColors = (Unsafe.SizeOf<T>() * 8 - 4) / 4;
 
         if (colors.Length < 1 || colors.Length > maxColors)
             throw new ArgumentException($"For {typeof(T).Name}, length must be from 1 to {maxColors}");
@@ -61,13 +59,13 @@ public readonly struct ColoredGlassSequence<T> : IReadOnlyList<GlassColors>, IEq
         for (var i = 0; i < colors.Length; i++)
         {
             var colorVal = T.CreateTruncating(colors[i]);
-            packedValue |= colorVal << (3 + i * 4);
+            packedValue |= colorVal << (4 + i * 4);
         }
 
         Value = packedValue;
     }
 
-    public int Count => int.CreateTruncating(Value & T.CreateTruncating(0b111));
+    public int Count => int.CreateTruncating(Value & T.CreateTruncating(0b1111));
 
     /// <summary>
     /// Returns a mapping dictionary: Color ID -> Color name (For example: 0 -> "White").
