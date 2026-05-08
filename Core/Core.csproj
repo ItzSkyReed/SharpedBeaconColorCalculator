@@ -4,7 +4,11 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>BeaconColorCalculator</RootNamespace>
+        <RootNamespace>BeaconColorCalculator.Core</RootNamespace>
     </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
+    </ItemGroup>
 
 </Project>

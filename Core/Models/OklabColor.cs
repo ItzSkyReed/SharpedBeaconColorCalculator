@@ -1,4 +1,4 @@
-﻿namespace BeaconColorCalculator.Models;
+﻿namespace BeaconColorCalculator.Core.Models;
 
 using System;
 

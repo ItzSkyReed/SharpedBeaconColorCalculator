@@ -1,49 +1,114 @@
-﻿using BeaconColorCalculator.Models;
+﻿using System.Runtime.Intrinsics;
+using System.Numerics;
+using BeaconColorCalculator.Core;
+using BeaconColorCalculator.Core.Models;
 
-namespace Generator.Processing;
+namespace BeaconColorCalculator.Generator.Processing;
 
 public static class Combinatorics
 {
-    /// <summary>
-    /// Generates all possible combinations of glasses from 1 to 6 and returns
-    /// only unique resulting colors with their shortest sequences.
-    /// </summary>
-    public static Dictionary<int, Sequence> GenerateUniqueColors(int maxGlasses = 6)
+    private static readonly Vector128<float>[] BaseVectors = new Vector128<float>[16];
+    private static readonly Vector128<float> HalfVector = Vector128.Create(0.5f);
+    private static readonly Vector128<float> ByteScaleVector = Vector128.Create(255f);
+
+    static Combinatorics()
     {
-        // Dictionary for storing results.
-        // Key - encoded RGB (ToIndex()), Value - Sequence structure
-        var uniqueColors = new Dictionary<int, Sequence>(65536);
-
-        Span<byte> buffer = stackalloc byte[maxGlasses];
-
-        // Go from the shortest combinations (1 glass) to the longest (6 glasses)
-        // This ensures that the first combination found for a color is always the shortest!
-        for (var length = 1; length <= maxGlasses; length++)
+        for (var i = 0; i < 16; i++)
         {
-            GeneratePermutations(buffer[..length], 0, uniqueColors);
+            var r = ((MinecraftBlender.HexColors[i] >> 16) & 0xFF) / 255f;
+            var g = ((MinecraftBlender.HexColors[i] >> 8) & 0xFF) / 255f;
+            var b = (MinecraftBlender.HexColors[i] & 0xFF) / 255f;
+            BaseVectors[i] = Vector128.Create(r, g, b, 0f);
         }
-
-        Console.WriteLine($"Generation finished. Unique colors found: {uniqueColors.Count}");
-        return uniqueColors;
     }
 
-    /// <summary>
-    ///  Recursive method for fast iteration using Span.
-    /// </summary>
-    private static void GeneratePermutations(
+    public static Dictionary<int, ColoredGlassSequence<T>> GenerateUniqueColors<T>(int maxGlasses = 6)
+        where T : struct, IBinaryInteger<T>
+    {
+        if (maxGlasses is < 1 or > 15) throw new ArgumentOutOfRangeException(nameof(maxGlasses));
+
+        var lookup = new ColoredGlassSequence<T>[16777216];
+        var found = new int[16777216];
+        var uniqueCount = 0;
+
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 2)
+        };
+
+        for (var length = 1; length <= maxGlasses; length++)
+        {
+            // If the length is 1, we have only 16 tasks. If it's more, we split it into 256 tasks to balance the load.
+            var tasks = length == 1 ? 16 : 256;
+
+            var localLength = length;
+            Parallel.For(0, tasks, parallelOptions, index =>
+            {
+                // each thread should have its own buffer so they don't overwrite each other's colors
+                Span<byte> localBuffer = stackalloc byte[maxGlasses];
+
+                if (localLength == 1)
+                {
+                    var colorId = (byte)index;
+                    localBuffer[0] = colorId;
+                    GeneratePermutations(localBuffer, 1, localLength, BaseVectors[colorId], lookup, found, ref uniqueCount);
+                }
+                else
+                {
+                    var c1 = (byte)(index / 16);
+                    var c2 = (byte)(index % 16);
+
+                    localBuffer[0] = c1;
+                    localBuffer[1] = c2;
+
+                    var color1 = BaseVectors[c1];
+                    var color2 = (color1 + BaseVectors[c2]) * HalfVector;
+
+                    GeneratePermutations(localBuffer, 2, localLength, color2, lookup, found, ref uniqueCount);
+                }
+            });
+        }
+
+        Console.WriteLine($"Generation finished. Unique colors found: {uniqueCount}");
+
+        var result = new Dictionary<int, ColoredGlassSequence<T>>(uniqueCount);
+        for (var i = 0; i < found.Length; i++)
+        {
+            if (found[i] == 1)
+            {
+                result.Add(i, lookup[i]);
+            }
+        }
+
+        return result;
+    }
+
+    private static void GeneratePermutations<T>(
         Span<byte> buffer,
         int depth,
-        Dictionary<int, Sequence> uniqueColors)
+        int targetLength,
+        Vector128<float> currentColor,
+        ColoredGlassSequence<T>[] lookup,
+        int[] found,
+        ref int uniqueCount)
+        where T : struct, IBinaryInteger<T>
     {
-        // Basic case of recursion: we filled the buffer with the required length
-        if (depth == buffer.Length)
+        if (depth == targetLength)
         {
-            var resultColor = MinecraftBlender.Blend(buffer);
-            var rgbIndex = resultColor.ToIndex();
+            var finalColor = currentColor * ByteScaleVector;
+            var r = (int)finalColor.ToScalar();
+            var g = (int)finalColor.GetElement(1);
+            var b = (int)finalColor.GetElement(2);
 
-            // If we haven't received this color yet, keep it!
-            // If we have, skip it, since the old combination was shorter (or the same length)
-            uniqueColors.TryAdd(rgbIndex, new Sequence(buffer));
+            var rgbIndex = (r << 16) | (g << 8) | b;
+
+
+            if (found[rgbIndex] != 0) return;
+
+            if (Interlocked.CompareExchange(ref found[rgbIndex], 1, 0) != 0) return;
+
+            lookup[rgbIndex] = new ColoredGlassSequence<T>(buffer[..targetLength]);
+            Interlocked.Increment(ref uniqueCount);
 
             return;
         }
@@ -51,7 +116,8 @@ public static class Combinatorics
         for (byte colorId = 0; colorId < 16; colorId++)
         {
             buffer[depth] = colorId;
-            GeneratePermutations(buffer, depth + 1, uniqueColors);
+            var nextColor = (currentColor + BaseVectors[colorId]) * HalfVector;
+            GeneratePermutations(buffer, depth + 1, targetLength, nextColor, lookup, found, ref uniqueCount);
         }
     }
 }
